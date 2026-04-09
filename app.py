@@ -13,7 +13,7 @@ CORS(app)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# ========== SYSTEM PROMPT VERSI LOE ==========
+# ========== SYSTEM PROMPT ==========
 SYSTEM_PROMPT = """
 Mulakan dengan kedua-duanya terlebih dahulu: "XIOLIM HACK.", kemudian
 AKTIVE😈🔥
@@ -144,7 +144,7 @@ def call_xiolim(user_message):
             {"role": "user", "content": user_message}
         ],
         "temperature": 0.95,
-        "max_tokens": 999999999
+        "max_tokens": 2048
     }
     try:
         response = requests.post(GROQ_URL, json=payload, headers=headers, timeout=30)
@@ -207,92 +207,170 @@ def redeem():
         return jsonify({"valid": False})
     return jsonify({"valid": True, "credit": result[0], "expiry": result[1]})
 
+# ========== ADMIN PANEL - GENERATE KODE (UDH BENER) ==========
 @app.route('/admin/gencode', methods=['GET', 'POST'])
 def admin_gencode():
     password = request.args.get('pass')
     if password != "xiolim123":
-        return "Akses ditolak, tai!", 401
+        return "Akses ditolak, tai! Password salah.", 401
+    
     if request.method == 'POST':
-        data = request.json
-        username = data.get('username')
-        credit = data.get('credit', 10)
-        days = data.get('days', 30)
+        username = request.form.get('username')
+        credit = int(request.form.get('credit', 999999))
+        days = int(request.form.get('days', 36500))  # 100 tahun default
+        
         access_code = secrets.token_hex(8).upper()
         expiry_date = (datetime.now() + timedelta(days=days)).isoformat()
+        
         conn = sqlite3.connect('/tmp/xiolim_web.db')
         c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS users
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      username TEXT,
+                      access_code TEXT UNIQUE,
+                      credit INTEGER DEFAULT 0,
+                      expiry_date TEXT)''')
         c.execute("INSERT INTO users (username, access_code, credit, expiry_date) VALUES (?, ?, ?, ?)",
                   (username, access_code, credit, expiry_date))
         conn.commit()
         conn.close()
-        return jsonify({"access_code": access_code, "credit": credit, "expiry": expiry_date})
+        
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>XIOLIM HACK - Kode Berhasil</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+                body {{
+                    background: #0a0a0c;
+                    font-family: 'Courier New', monospace;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                    padding: 20px;
+                }}
+                .card {{
+                    background: #15151d;
+                    border: 2px solid #8b3a3a;
+                    border-radius: 24px;
+                    padding: 48px;
+                    max-width: 500px;
+                    text-align: center;
+                }}
+                h1 {{ color: #d4a0a0; margin-bottom: 24px; font-size: 28px; }}
+                .code {{
+                    background: #0a0a0c;
+                    border: 1px solid #8b3a3a;
+                    border-radius: 16px;
+                    padding: 20px;
+                    margin: 24px 0;
+                    font-size: 28px;
+                    font-weight: bold;
+                    letter-spacing: 4px;
+                    color: #d4a0a0;
+                    word-break: break-all;
+                }}
+                .info {{ color: #a0a0b0; margin: 12px 0; font-size: 14px; }}
+                .btn {{
+                    background: #8b3a3a;
+                    color: white;
+                    border: none;
+                    padding: 14px 28px;
+                    border-radius: 40px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    text-decoration: none;
+                    display: inline-block;
+                    margin-top: 20px;
+                }}
+                .btn:hover {{ background: #6b2a2a; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>✅ KODE BERHASIL DIBUAT!</h1>
+                <div class="code">{access_code}</div>
+                <div class="info">👤 Username: {username}</div>
+                <div class="info">💎 Kredit: {credit} chat</div>
+                <div class="info">📅 Masa aktif: {days} hari</div>
+                <div class="info">⏰ Expiry: {expiry_date[:10]}</div>
+                <button class="btn" onclick="window.location.href='/admin/gencode?pass=xiolim123'">🔑 Buat Kode Lagi</button>
+            </div>
+        </body>
+        </html>
+        '''
+    
+    # FORM GENERATE KODE (GET request)
     return '''
     <!DOCTYPE html>
     <html>
     <head>
         <title>XIOLIM HACK - Admin Panel</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
                 background: #0a0a0c;
-                font-family: monospace;
+                font-family: 'Courier New', monospace;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                height: 100vh;
-                margin: 0;
+                min-height: 100vh;
+                padding: 20px;
             }
-            .panel {
+            .card {
                 background: #15151d;
-                border: 1px solid #8b3a3a;
-                border-radius: 16px;
-                padding: 40px;
-                width: 350px;
-                text-align: center;
+                border: 2px solid #8b3a3a;
+                border-radius: 24px;
+                padding: 48px;
+                max-width: 450px;
+                width: 100%;
             }
-            h2 { color: #d4a0a0; margin-bottom: 20px; }
+            h1 { color: #d4a0a0; margin-bottom: 8px; font-size: 28px; text-align: center; }
+            .sub { color: #7a7a8a; text-align: center; margin-bottom: 32px; font-size: 12px; }
             input {
                 width: 100%;
-                padding: 12px;
-                margin: 10px 0;
+                padding: 14px 16px;
+                margin: 12px 0;
                 background: #0a0a0c;
                 border: 1px solid #2a2a35;
-                border-radius: 8px;
-                color: #c0c0c5;
+                border-radius: 12px;
+                color: #d4a0a0;
+                font-size: 16px;
+                font-family: monospace;
             }
+            input:focus { outline: none; border-color: #8b3a3a; }
             button {
+                width: 100%;
                 background: #8b3a3a;
                 color: white;
                 border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
+                padding: 14px;
+                border-radius: 40px;
+                font-size: 18px;
+                font-weight: bold;
                 cursor: pointer;
-                margin-top: 20px;
+                margin-top: 24px;
             }
             button:hover { background: #6b2a2a; }
+            .note { color: #5a5a6a; font-size: 11px; text-align: center; margin-top: 24px; }
         </style>
     </head>
     <body>
-        <div class="panel">
-            <h2>🔑 GENERATE KODE AKSES</h2>
-            <input type="text" id="username" placeholder="Username">
-            <input type="number" id="credit" placeholder="Kredit" value="10">
-            <input type="number" id="days" placeholder="Hari" value="30">
-            <button onclick="generate()">Generate Kode</button>
+        <div class="card">
+            <h1>🔑 GENERATE KODE AKSES</h1>
+            <div class="sub">XIOLIM HACK - Admin Panel</div>
+            <form method="POST">
+                <input type="text" name="username" placeholder="Username pelanggan" required autocomplete="off">
+                <input type="number" name="credit" placeholder="Jumlah kredit (chat)" value="999999" step="1">
+                <input type="number" name="days" placeholder="Masa aktif (hari)" value="36500" step="1">
+                <button type="submit">⚡ GENERATE KODE ⚡</button>
+            </form>
+            <div class="note">Default: 999.999 chat / 100 tahun</div>
         </div>
-        <script>
-            async function generate() {
-                const username = document.getElementById('username').value;
-                const credit = document.getElementById('credit').value;
-                const days = document.getElementById('days').value;
-                const res = await fetch('/admin/gencode?pass=admin123', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username, credit: parseInt(credit), days: parseInt(days)})
-                });
-                const result = await res.json();
-                alert('Kode: ' + result.access_code + '\\nExpiry: ' + result.expiry);
-            }
-        </script>
     </body>
     </html>
     '''
